@@ -12,6 +12,8 @@ pub struct ReqtAppState {
 pub struct ReqtApp {
     raw_url: String,
 
+    show_env_window: bool,
+
     #[serde(skip)] // This how you opt-out of serialization of a field
     response_receiver: Receiver<ehttp::Result<ehttp::Response>>,
 
@@ -30,6 +32,7 @@ impl Default for ReqtApp {
         let (sender, receiver) = channel();
         Self {
             raw_url: "https://nekos.best/api/v2/hug?amount=10".to_owned(),
+            show_env_window: false,
             response_sender: sender,
             response_receiver: receiver,
             response: None,
@@ -123,11 +126,17 @@ impl eframe::App for ReqtApp {
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 egui::warn_if_debug_build(ui);
-                ui.menu_button("Environments", |ui| {
-                    if ui.button("Foo Env").clicked() {
-                        ui.close_menu();
-                    }
-                });
+
+                if ui.button("Environments").clicked() {
+                    self.show_env_window = true;
+                }
+
+                // ui.menu_button("Environments", |ui| {
+                //     if ui.button("New Env").clicked() {
+                //         println!("add new environment!");
+                //         ui.close_menu();
+                //     }
+                // });
                 ui.separator();
             })
         });
@@ -244,6 +253,20 @@ impl eframe::App for ReqtApp {
             //     egui::warn_if_debug_build(ui);
             // });
         });
+
+        if self.show_env_window {
+            egui::Window::new("Environments")
+                .open(&mut self.show_env_window.clone())
+                .show(ctx, |ui| {
+                    if ui.button("New Environment").clicked() {
+                        println!("TODO: create new environment");
+                    }
+
+                    if ui.button("Close").clicked() {
+                        self.show_env_window = false;
+                    }
+                });
+        }
     }
 }
 
