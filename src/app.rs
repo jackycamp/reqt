@@ -1,8 +1,12 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct ReqtAppState {
+    // The current selected environment
+    // iF none is selected, then the app's default environment is used
     current_env: String,
 
+    // The current request being viewed
     current_req: Option<String>,
 }
 
@@ -10,8 +14,13 @@ pub struct ReqtAppState {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ReqtApp {
+    // The current state of the app
+    state: ReqtAppState,
+
+    // TODO: REMOVE
     raw_url: String,
 
+    // Whether or not the Environments window is showing
     show_env_window: bool,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
@@ -27,10 +36,20 @@ pub struct ReqtApp {
     ctx: Option<egui::Context>,
 }
 
+impl Default for ReqtAppState {
+    fn default() -> Self {
+        Self {
+            current_env: "default".to_owned(),
+            current_req: None,
+        }
+    }
+}
+
 impl Default for ReqtApp {
     fn default() -> Self {
         let (sender, receiver) = channel();
         Self {
+            state: ReqtAppState::default(),
             raw_url: "https://nekos.best/api/v2/hug?amount=10".to_owned(),
             show_env_window: false,
             response_sender: sender,
@@ -57,6 +76,7 @@ impl ReqtApp {
             ..Default::default()
         }
     }
+
     pub fn send_request(&self) {
         println!("send request!");
         let sender = self.response_sender.clone();
@@ -73,6 +93,12 @@ impl ReqtApp {
                 ctx.request_repaint();
             }
         });
+    }
+
+    pub fn create_new_request(&self) {
+        println!("TODO: create_new_request");
+        // TODO: insert into requests
+        // TODO: render new request in central panel
     }
 }
 
@@ -121,7 +147,7 @@ impl eframe::App for ReqtApp {
             ui.label("Requests");
 
             if ui.button("New Request").clicked() {
-                println!("add new request!");
+                self.create_new_request();
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -162,6 +188,16 @@ impl eframe::App for ReqtApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
+
+            match &self.state.current_req {
+                Some(req) => {}
+                None => {
+                    ui.label("get reqt");
+                    if ui.button("Create new Request").clicked() {
+                        self.create_new_request();
+                    };
+                }
+            }
 
             ui.horizontal(|ui| {
                 ui.menu_button("GET", |ui| {
@@ -242,7 +278,6 @@ impl eframe::App for ReqtApp {
 
                     if let Some(resp) = self.response.clone() {
                         ui.add(egui::Label::new(resp).selectable(true));
-                        // ui.label(resp);
                     }
                 });
 
@@ -259,7 +294,7 @@ impl eframe::App for ReqtApp {
                 .open(&mut self.show_env_window.clone())
                 .show(ctx, |ui| {
                     if ui.button("New Environment").clicked() {
-                        println!("TODO: create new environment");
+                        println!("TODO: show new environment window");
                     }
 
                     if ui.button("Close").clicked() {
