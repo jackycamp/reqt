@@ -190,14 +190,16 @@ impl eframe::App for ReqtApp {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
             match &self.state.current_req {
-                Some(req) => {}
-                None => {
-                    ui.label("get reqt");
-                    if ui.button("Create new Request").clicked() {
+                Some(req) => ui.centered_and_justified(|ui| {
+                    ui.label("wow request is here");
+                }),
+                None => ui.centered_and_justified(|ui| {
+                    ui.label("nothing here");
+                    if ui.button("Create new requets").clicked() {
                         self.create_new_request();
-                    };
-                }
-            }
+                    }
+                }),
+            };
 
             ui.horizontal(|ui| {
                 ui.menu_button("GET", |ui| {
