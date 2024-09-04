@@ -1,10 +1,67 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn short_uuid(length: usize) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_nanos();
+
+    let charset: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                           abcdefghijklmnopqrstuvwxyz\
+                           0123456789";
+
+    (0..length)
+        .map(|i| {
+            let idx = ((now >> (i * 8)) & 0xff) as usize % charset.len();
+            charset[idx] as char
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub enum RequestMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ReqtRequest {
+    id: String,
+
+    method: RequestMethod,
+
+    url: Option<String>,
+
+    // TODO: should be a serializeable object
+    query_params: Option<String>,
+
+    // TODO: should be a serializeable object
+    body: Option<String>,
+}
+
+impl ReqtRequest {
+    pub fn default() -> Self {
+        let id = format!("req-{}", short_uuid(6));
+
+        Self {
+            id,
+            method: RequestMethod::Get,
+            url: None,
+            query_params: None,
+            body: None,
+        }
+    }
+}
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ReqtAppState {
     // The current selected environment
     // iF none is selected, then the app's default environment is used
-    current_env: String,
+    current_env: Option<String>,
 
     // The current request being viewed
     current_req: Option<String>,
@@ -39,7 +96,7 @@ pub struct ReqtApp {
 impl Default for ReqtAppState {
     fn default() -> Self {
         Self {
-            current_env: "default".to_owned(),
+            current_env: None,
             current_req: None,
         }
     }
@@ -95,10 +152,44 @@ impl ReqtApp {
         });
     }
 
-    pub fn create_new_request(&self) {
+    pub fn create_new_request(&self) -> anyhow::Result<ReqtRequest> {
         println!("TODO: create_new_request");
-        // TODO: insert into requests
-        // TODO: render new request in central panel
+        let req = ReqtRequest::default();
+        println!("New request! {:?}", req);
+
+        // If there is a current env then we will store this request
+        // in that env's tree
+        let mut tree_name = "default".to_owned();
+        if let Some(env) = self.state.current_env.clone() {
+            tree_name = env;
+        }
+
+        // Otherwise, we will just insert it into the default tree
+        let db = sled::open("~/.reqt/reqtdb")?;
+        let tree = db.open_tree(tree_name)?;
+
+        // Attempt to retrieve the requests vec for that tree
+        let mut existing_vec: Vec<ReqtRequest> =
+            if let Some(existing_data) = tree.get("requests")? {
+                bincode::deserialize(&existing_data)?
+            } else {
+                Vec::new()
+            };
+
+        println!("existing vec?: {:?}", existing_vec);
+
+        for r in existing_vec.iter() {
+            println!("existing? {:?}", r);
+        }
+
+        existing_vec.push(req.clone());
+        let as_bin = bincode::serialize(&existing_vec)?;
+        tree.insert("requests", as_bin)?;
+        tree.flush()?;
+
+        // TODO: set current request
+
+        Ok(req)
     }
 }
 
