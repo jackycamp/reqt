@@ -27,7 +27,11 @@ ehttp = { version = "0.5.0", features = ["json"] }
 # sled for app state persistence
 sled = "0.34.7"
 
+# for more elegant error propagation
 anyhow = "1.0.86"
+
+# bincode for serializing/deserializing binary data
+bincode = "1.3.3"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
